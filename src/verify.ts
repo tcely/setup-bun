@@ -35,7 +35,7 @@ export async function verifyAsset(zipPath: string, downloadUrl: string, token?: 
 
   // 3. Fetch and Verify Mandatory PGP Manifest
   const manifestBaseUrl = getGitHubManifestUrl(metadata.owner, metadata.repo, metadata.tag, "SHASUMS256.txt");
-  const verifiedText = await getVerifiedManifest(manifestBaseUrl);
+  const verifiedText = await getVerifiedManifest(manifestBaseUrl, token);
 
   const manifestMatch = verifiedText.split(/\r?\n/)
     .find(line => line.includes(metadata.name))
