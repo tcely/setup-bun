@@ -15,7 +15,9 @@ async function getCleanArmoredKey(input: string): Promise<string> {
   const actualFp = key.getFingerprint().toUpperCase();
 
   if (actualFp !== ROBOBUN_FP) {
-    throw new Error(`Fingerprint mismatch: expected ${ROBOBUN_FP}, got ${actualFp}`);
+    throw new Error(
+      `Fingerprint mismatch: expected ${ROBOBUN_FP}, got ${actualFp}`,
+    );
   }
 
   return key.armor();
@@ -48,18 +50,19 @@ export async function getSigningKey(token?: string): Promise<openpgp.Key> {
     try {
       const parsedUrl = new URL(url);
       const isGitHubApi = "api.github.com" === parsedUrl.hostname;
-      
+
       const res = await request(url, {
-        headers: (isGitHubApi && token) ? { "Authorization": `token ${token}` } : {}
+        headers:
+          isGitHubApi && token ? { "Authorization": `token ${token}` } : {},
       });
       const rawText = await res.text();
 
       if (rawText.includes("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
         const cleanKey = await getCleanArmoredKey(rawText);
-        
+
         // 3. Persist the sanitized armored block to the filesystem
         setCache(ROBOBUN_STORAGE_KEY, cleanKey);
-        
+
         info(`Retrieved verified public key from ${parsedUrl.hostname}.`);
         return await openpgp.readKey({ armoredKey: cleanKey });
       }
@@ -68,5 +71,7 @@ export async function getSigningKey(token?: string): Promise<openpgp.Key> {
     }
   }
 
-  throw new Error(`Failed to retrieve verified public key for ${ROBOBUN_FP} from all sources.`);
+  throw new Error(
+    `Failed to retrieve verified public key for ${ROBOBUN_FP} from all sources.`,
+  );
 }

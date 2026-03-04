@@ -6,21 +6,24 @@ import { getSigningKey } from "./signing-key";
 /**
  * Fetches the clearsigned manifest (.asc) and returns the verified text content.
  */
-export async function getVerifiedManifest(downloadUrl: string, token?: string): Promise<string> {
+export async function getVerifiedManifest(
+  downloadUrl: string,
+  token?: string,
+): Promise<string> {
   const ascUrl = `${downloadUrl}.asc`;
   const parsedUrl = new URL(ascUrl);
-  
+
   /**
-   * Scoping the token to github.com prevents leaking credentials to 
-   * third-party servers while allowing for higher rate limits and 
+   * Scoping the token to github.com prevents leaking credentials to
+   * third-party servers while allowing for higher rate limits and
    * access to private repositories.
    */
   const isGitHub = "github.com" === parsedUrl.hostname;
 
   const res = await request(ascUrl, {
-    headers: (isGitHub && token) ? { "Authorization": `token ${token}` } : {}
+    headers: isGitHub && token ? { "Authorization": `token ${token}` } : {},
   });
-  
+
   const armoredSignedMessage = await res.text();
 
   /**
@@ -30,7 +33,7 @@ export async function getVerifiedManifest(downloadUrl: string, token?: string): 
    */
   const [publicKey, message] = await Promise.all([
     getSigningKey(token),
-    openpgp.readCleartextMessage({ cleartextMessage: armoredSignedMessage })
+    openpgp.readCleartextMessage({ cleartextMessage: armoredSignedMessage }),
   ]);
 
   const fingerprint = publicKey.getFingerprint().toUpperCase();
@@ -42,15 +45,15 @@ export async function getVerifiedManifest(downloadUrl: string, token?: string): 
    */
   const verification = await openpgp.verify({
     message,
-    verificationKeys: publicKey
+    verificationKeys: publicKey,
   });
 
   /**
    * Filter for the signature that matches our trusted robobun fingerprint.
    * This ensures we aren't misled by other signatures that might be present.
    */
-  const signature = verification.signatures.find(sig => 
-    fingerprint === sig.signingKey.getFingerprint().toUpperCase()
+  const signature = verification.signatures.find(
+    (sig) => fingerprint === sig.signingKey.getFingerprint().toUpperCase(),
   );
 
   if (!signature) {
@@ -58,11 +61,13 @@ export async function getVerifiedManifest(downloadUrl: string, token?: string): 
   }
 
   /**
-   * Log the signature details immediately. This allows us to see the 
+   * Log the signature details immediately. This allows us to see the
    * identity claims before the cryptographic verification is attempted.
    */
   info("Checking PGP signature...");
-  info(`- Signed On: ${signature.getCreationTime()?.toISOString() || "Unknown"}`);
+  info(
+    `- Signed On: ${signature.getCreationTime()?.toISOString() || "Unknown"}`,
+  );
   info(`- Key ID: ${signature.keyID.toHex().toLowerCase()}`);
   info(`- Fingerprint: ${fingerprint}\n`);
 
@@ -70,7 +75,7 @@ export async function getVerifiedManifest(downloadUrl: string, token?: string): 
 
   try {
     /**
-     * MUST await 'verified' to perform the cryptographic check. 
+     * MUST await 'verified' to perform the cryptographic check.
      * If the signature is invalid or tampered with, this throws.
      */
     await verified;
@@ -78,7 +83,9 @@ export async function getVerifiedManifest(downloadUrl: string, token?: string): 
   } catch (err: unknown) {
     const message = (err as Error).message;
     error(`PGP Signature verification failed: ${message}`);
-    throw new Error(`PGP Signature verification failed for ${ascUrl}: ${message}`);
+    throw new Error(
+      `PGP Signature verification failed for ${ascUrl}: ${message}`,
+    );
   }
 
   /**

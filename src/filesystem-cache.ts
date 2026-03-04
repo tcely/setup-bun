@@ -1,10 +1,16 @@
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { existsSync, readFileSync, writeFileSync, statSync, mkdirSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  statSync,
+  mkdirSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 
 const CACHE_DIR = process.env.RUNNER_TEMP || tmpdir();
-const FS_CACHE_TIMEOUT = (1000 * 60 * 60) * 12; // hours
+const FS_CACHE_TIMEOUT = 1000 * 60 * 60 * 12; // hours
 
 function getCachePath(key: string): string {
   const hash = createHash("sha1").update(key).digest("hex");
@@ -19,7 +25,7 @@ export function getCache(key: string): string | null {
   try {
     if (existsSync(path)) {
       const stats = statSync(path);
-      if (FS_CACHE_TIMEOUT > (Date.now() - stats.mtimeMs)) {
+      if (FS_CACHE_TIMEOUT > Date.now() - stats.mtimeMs) {
         return readFileSync(path, "utf8");
       }
     }
