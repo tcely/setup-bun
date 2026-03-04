@@ -5,9 +5,11 @@ import { getSigningKey } from "./signing-key.js";
 /**
  * Fetches the clearsigned manifest (.asc) and returns the verified text content.
  */
-export async function getVerifiedManifest(downloadUrl: string): Promise<string> {
+export async function getVerifiedManifest(downloadUrl: string, token?: string): Promise<string> {
   const ascUrl = `${downloadUrl}.asc`;
-  const res = await request(ascUrl);
+  const res = await request(ascUrl, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {}
+  });
   const cleartextMessage = await res.text();
 
   const [publicKey, message] = await Promise.all([
