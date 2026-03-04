@@ -1,57 +1,55 @@
-import * as openpgp from "openpgp";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { info } from "@actions/core";
-import { request } from "./utils";
-import { getVksUrl, getHkpUrl, getGitHubGpgUrl, buildUrl } from "./url";
+import { info, warning } from "@actions/core";
+import { 
+  fetchAssetMetadata, 
+  getHexFromDigest, 
+  GITHUB_DIGEST_THRESHOLD 
+} from "./github-asset.js";
+import { getVerifiedManifest } from "./manifest.js";
+import { getGitHubManifestUrl } from "./url.js";
 
-const ROBOBUN_FP = "F3DCC08A8572C0749B3E18888EAB4D40A7B22B59";
-const JULY_2025 = new Date("2025-07-01");
+/**
+ * Orchestrates the full integrity check: 
+ * Local Hash -> GitHub API Digest (if available) -> PGP Manifest.
+ */
+export async function verifyAsset(zipPath: string, downloadUrl: string, token?: string): Promise<void> {
+  // 1. Calculate local hash baseline first
+  const fileBuffer = readFileSync(zipPath);
+  const actualHash = createHash("sha256").update(fileBuffer).digest("hex").toLowerCase();
 
-export async function verifyBunAsset(zipPath: string, url: string, token?: string) {
-  const fileName = zipPath.split(/[\\/]/).pop()!;
-  
-  // 1. Fetch Key (Trying OpenPGP keyserver then GitHub)
-  let keyText: string;
-  try {
-    keyText = await (await request(getVksUrl("keys.openpgp.org", ROBOBUN_FP))).text();
-  } catch {
-    keyText = await (await request(getGitHubGpgUrl("robobun"))).text();
-  }
-  const publicKey = await openpgp.readKey({ armoredKey: keyText });
+  // 2. Fetch Metadata and check GitHub API Digest
+  const metadata = await fetchAssetMetadata(downloadUrl, token);
 
-  // 2. Verify PGP Signature
-  const ascText = await (await request(url + ".asc")).text();
-  const verification = await openpgp.verify({
-    message: await openpgp.readCleartextMessage({ cleartextMessage: ascText }),
-    verificationKeys: publicKey
-  });
-
-  const sigDate = await (verification.signatures[0] as any).getCreationTime();
-  const isStrict = sigDate >= JULY_2025;
-
-  const manifestHash = (verification.data as string).split(/\r?\n/)
-    .find(l => l.includes(fileName))?.match(/^([a-f0-9]{64})/i)?.[1];
-
-  // 3. GitHub API Digest Cross-check (for releases after June 2025)
-  if (isStrict) {
-    const parts = new URL(url).pathname.split("/");
-    const apiUrl = buildUrl("api.github.com", `/repos/${parts[1]}/${parts[2]}/releases/tags/${parts[5]}`);
-    const release = await (await request(apiUrl, { 
-      headers: token ? { Authorization: `token ${token}` } : {} 
-    })).json();
-    
-    const githubDigest = release.assets.find((a: any) => a.name === fileName)?.digest;
-    if (githubDigest && githubDigest.toLowerCase() !== manifestHash?.toLowerCase()) {
-      throw new Error(`Security Mismatch: GitHub digest does not match signed manifest!`);
+  if (metadata.updated_at >= GITHUB_DIGEST_THRESHOLD) {
+    if (metadata.digest) {
+      const githubHash = getHexFromDigest(metadata.digest);
+      if (githubHash !== actualHash) {
+        throw new Error(`Security Mismatch: GitHub API digest (${githubHash}) differs from local hash (${actualHash})!`);
+      }
+      info(`Verified ${metadata.name} against GitHub API digest.`);
+    } else {
+      warning(`GitHub digest missing for asset updated on ${metadata.updated_at.toISOString()}`);
     }
   }
 
-  // 4. Final Local File Integrity
-  const actualHash = createHash("sha256").update(readFileSync(zipPath)).digest("hex");
+  // 3. Fetch and Verify Mandatory PGP Manifest
+  const manifestBaseUrl = getGitHubManifestUrl(metadata.owner, metadata.repo, metadata.tag, "SHASUMS256.txt");
+  const verifiedText = await getVerifiedManifest(manifestBaseUrl);
+
+  const manifestMatch = verifiedText.split(/\r?\n/)
+    .find(line => line.includes(metadata.name))
+    ?.match(/^([a-f0-9]{64})/i);
+
+  if (!manifestMatch) {
+    throw new Error(`No verified hash found for ${metadata.name} in the signed manifest.`);
+  }
+  const manifestHash = manifestMatch[1].toLowerCase();
+
+  // Final cross-check against PGP Manifest
   if (actualHash !== manifestHash) {
-    throw new Error(`Integrity Failure: Local hash mismatch for ${fileName}`);
+    throw new Error(`Integrity Failure: Local hash (${actualHash}) does not match manifest (${manifestHash})`);
   }
 
-  info(`Verified ${fileName} against robobun PGP signature and SHA256 digest.`);
+  info(`Successfully verified ${metadata.name} (PGP + SHA256)`);
 }
