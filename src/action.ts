@@ -18,6 +18,7 @@ import { saveState } from "@actions/core";
 import { addExtension, getCacheKey } from "./utils";
 import { getDownloadUrl } from "./download-url";
 import { cwd } from "node:process";
+import { verifyAsset } from "./verify";
 
 export type Input = {
   customUrl?: string;
@@ -163,9 +164,15 @@ function isVersionMatch(
 async function downloadBun(
   url: string,
   bunPath: string,
+  token?: string,
 ): Promise<string | undefined> {
   // Workaround for https://github.com/oven-sh/setup-bun/issues/79 and https://github.com/actions/toolkit/issues/1179
   const zipPath = addExtension(await downloadTool(url), ".zip");
+
+  // INTEGRITY CHECK: Verify the download before extraction.
+  // This checks the Local Hash, GitHub Asset Digest, and the robobun PGP Signature.
+  await verifyAsset(zipPath, url, token);
+
   const extractedZipPath = await extractZip(zipPath);
   const extractedBunPath = await extractBun(extractedZipPath);
   try {
