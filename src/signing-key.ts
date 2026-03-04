@@ -1,8 +1,8 @@
 import * as openpgp from "openpgp";
 import { info } from "@actions/core";
-import { getCache, setCache } from "./filesystem-cache.js";
-import { request } from "./utils.js";
-import { getVksUrl, getHkpUrl, getGitHubGpgUrl } from "./url.js";
+import { getCache, setCache } from "./filesystem-cache";
+import { request } from "./utils";
+import { getVksUrl, getHkpUrl, getGitHubGpgUrl } from "./url";
 
 const ROBOBUN_FP = "F3DCC08A8572C0749B3E18888EAB4D40A7B22B59";
 const ROBOBUN_STORAGE_KEY = `gpg-public-key-${ROBOBUN_FP}`;
