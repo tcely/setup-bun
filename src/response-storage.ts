@@ -1,4 +1,4 @@
-import { getCache, setCache } from "./filesystem-cache.js";
+import { getCache, setCache } from "./filesystem-cache";
 
 /**
  * Determines if the URL is metadata eligible for storage (e.g., GitHub API).
