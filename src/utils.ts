@@ -5,7 +5,7 @@ import { existsSync, readFileSync, renameSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { compareVersions, validate } from "compare-versions";
 
-import { getStoredResponse, setStoredResponse } from "./response-storage.js";
+import { getStoredResponse, setStoredResponse } from "./response-storage";
 
 // First Bun version that ships native Windows ARM64 binaries.
 const WINDOWS_ARM64_MIN_VERSION = "1.3.10";
