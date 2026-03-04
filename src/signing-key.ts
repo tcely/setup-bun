@@ -1,4 +1,5 @@
 import * as openpgp from "openpgp";
+import { info } from "@actions/core";
 import { getCache, setCache } from "./filesystem-cache.js";
 import { request } from "./utils.js";
 import { getVksUrl, getHkpUrl, getGitHubGpgUrl } from "./url.js";
@@ -23,15 +24,16 @@ async function getCleanArmoredKey(input: string): Promise<string> {
 /**
  * Retrieves the robobun public key from the 12-hour filesystem storage or the pool.
  */
-export async function getSigningKey(): Promise<openpgp.Key> {
+export async function getSigningKey(token?: string): Promise<openpgp.Key> {
   // 1. Check Filesystem Storage
   const storedKey = getCache(ROBOBUN_STORAGE_KEY);
   if (storedKey) {
     try {
       const cleanKey = await getCleanArmoredKey(storedKey);
+      info(`Retrieved verified public key from filesystem storage.`);
       return await openpgp.readKey({ armoredKey: cleanKey });
     } catch {
-      // Fall through to fetch fresh if stored data is corrupted or fingerprint changed
+      // Fall through to fetch fresh if stored data is corrupted
     }
   }
 
@@ -44,7 +46,12 @@ export async function getSigningKey(): Promise<openpgp.Key> {
 
   for (const url of sources) {
     try {
-      const res = await request(url);
+      const parsedUrl = new URL(url);
+      const isGitHubApi = "api.github.com" === parsedUrl.hostname;
+      
+      const res = await request(url, {
+        headers: (isGitHubApi && token) ? { "Authorization": `token ${token}` } : {}
+      });
       const rawText = await res.text();
 
       if (rawText.includes("-----BEGIN PGP PUBLIC KEY BLOCK-----")) {
@@ -53,6 +60,7 @@ export async function getSigningKey(): Promise<openpgp.Key> {
         // 3. Persist the sanitized armored block to the filesystem
         setCache(ROBOBUN_STORAGE_KEY, cleanKey);
         
+        info(`Retrieved verified public key from ${parsedUrl.hostname}.`);
         return await openpgp.readKey({ armoredKey: cleanKey });
       }
     } catch {
