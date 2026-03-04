@@ -5,9 +5,9 @@ import {
   fetchAssetMetadata, 
   getHexFromDigest, 
   GITHUB_DIGEST_THRESHOLD 
-} from "./github-asset.js";
-import { getVerifiedManifest } from "./manifest.js";
-import { getGitHubManifestUrl } from "./url.js";
+} from "./github-asset";
+import { getVerifiedManifest } from "./manifest";
+import { getGitHubManifestUrl } from "./url";
 
 /**
  * Orchestrates the full integrity check: 
