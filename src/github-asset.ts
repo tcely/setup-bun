@@ -1,6 +1,6 @@
 import { URL } from "node:url";
-import { buildUrl } from "./url.js";
-import { request } from "./utils.js";
+import { buildUrl } from "./url";
+import { request } from "./utils";
 
 /**
  * The date GitHub began providing mandatory digests for all release assets.
