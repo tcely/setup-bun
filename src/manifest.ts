@@ -1,7 +1,7 @@
 import * as openpgp from "openpgp";
 import { info, error } from "@actions/core";
-import { request } from "./utils.js";
-import { getSigningKey } from "./signing-key.js";
+import { request } from "./utils";
+import { getSigningKey } from "./signing-key";
 
 /**
  * Fetches the clearsigned manifest (.asc) and returns the verified text content.
