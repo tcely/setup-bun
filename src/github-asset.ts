@@ -67,7 +67,7 @@ export function getHexFromDigest(digest: GitHubDigest): string {
  * Pattern: https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}
  * Latest: https://github.com/oven-sh/bun/releases/latest/download/bun-darwin-aarch64.zip
  */
-export function parseAssetUrl(downloadUrl: string): UrlAssetMetadata {
+function parseAssetUrl(downloadUrl: string): UrlAssetMetadata {
   const urlObj = new URL(downloadUrl);
   if ("github.com" !== urlObj.hostname) {
     throw new Error(`Expected a github.com URL, got: ${urlObj.hostname}`);
