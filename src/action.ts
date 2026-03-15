@@ -90,7 +90,8 @@ export default async (options: Input): Promise<Output> => {
     revision,
   };
 
-  const cacheKey = getCacheKey(url);
+  const cacheUrl = sUrl;
+  const cacheKey = getCacheKey(cacheUrl);
   const statePath = join(homedir(), ".bun", "bun.json");
   if (cacheEnabled) {
     if (existsSync(statePath)) {
@@ -234,7 +235,7 @@ export default async (options: Input): Promise<Output> => {
     checksum = result.checksum;
     cacheState.bunPath = result.binPath;
     cacheState.checksum = checksum;
-    cacheState.url = result.url;
+    cacheState.url = result.url; // output URL (raw) for downstream steps
 
     try {
       cacheState.binaryFingerprint = quickFingerprint(result.binPath);
@@ -259,7 +260,7 @@ export default async (options: Input): Promise<Output> => {
   cacheState.revision = revision;
   const stateValue = JSON.stringify({
     ...cacheState,
-    url: stripUrlCredentials(cacheState.url),
+    url: cacheUrl, // stable cache/state URL used for restore/save keying
   });
   if (cacheEnabled && !cacheHit) {
     atomicWriteFileSync(statePath, stateValue);
