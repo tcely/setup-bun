@@ -1,4 +1,12 @@
-import { mkdirSync, symlinkSync, existsSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  symlinkSync,
+  existsSync,
+  readFileSync,
+  lstatSync,
+  readlinkSync,
+  unlinkSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { cwd } from "node:process";
@@ -67,15 +75,7 @@ export default async (options: Input): Promise<Output> => {
       throw error;
     }
   }
-
   const bunPath = join(binPath, exe("bun"));
-  try {
-    symlinkSync(bunPath, join(binPath, exe("bunx")));
-  } catch (error) {
-    if ("EEXIST" !== error.code) {
-      throw error;
-    }
-  }
 
   let checksum: string | undefined;
   let revision: string | undefined;
@@ -267,7 +267,26 @@ export default async (options: Input): Promise<Output> => {
   }
   saveState("cache", stateValue);
 
-  addPath(dirname(cacheState.bunPath));
+  const bunPathParentDir = dirname(cacheState.bunPath);
+  const bunxPath = join(bunPathParentDir, exe("bunx"));
+  const bunxTarget = exe("bun");
+  try {
+    const stat = lstatSync(bunxPath);
+    if (stat.isSymbolicLink() && bunxTarget !== readlinkSync(bunxPath)) {
+      unlinkSync(bunxPath);
+      symlinkSync(bunxTarget, bunxPath);
+    }
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      "ENOENT" !== (error as NodeJS.ErrnoException).code
+    ) {
+      throw error;
+    }
+    symlinkSync(bunxTarget, bunxPath);
+  }
+  addPath(bunPathParentDir);
+
   return {
     version,
     revision,
